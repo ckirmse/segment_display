@@ -4,11 +4,13 @@ LedControl lc=LedControl(12, 11, 10, 1);
 
 boolean in_number;
 
-long prev_read_number;
+long prev_read_number = 0;
 long prev_read_number_ms = 0;
 long last_read_number = 0;
 long last_read_number_ms = 0;
-long value = 25000;
+long rate = 0;
+long value = 0;
+long last_step_ms = 0;
 
 void setup() 
 {
@@ -18,7 +20,7 @@ void setup()
   lc.shutdown(0, false); // Enable display
   lc.setIntensity(0, 10); // Set brightness level (0 is min, 15 is max)
   lc.clearDisplay(0);
- 
+
   initIdle();  
   in_number = false;
 }
@@ -55,6 +57,31 @@ void readSerial()
         prev_read_number_ms = last_read_number_ms;
         last_read_number = read_value;
         last_read_number_ms = millis();
+        if (value == 0) {
+          value = last_read_number;
+          Serial.println("setting value");
+          Serial.println(value);
+          last_step_ms = millis();
+        }
+        if (last_read_number > 0 && prev_read_number > 0) {
+          long instantaneous_rate = 1000 * (last_read_number - prev_read_number) / (last_read_number_ms - prev_read_number_ms);
+          // weighted average to change speeds slowly
+          rate = (3*rate + instantaneous_rate / 4);
+        }
+        if (last_read_number < value) {
+          Serial.println("lowering rate");
+          rate = rate / 2;
+        }
+        if (rate < 1) {
+          rate = 1;
+        }
+        if (last_read_number < value * 9 / 10) {
+          value = last_read_number;
+          Serial.println("setting value due to inaccuracy");
+          Serial.println(value);
+        }
+        Serial.println("rate is now");
+        Serial.println(rate);
         have_value = false;
         if (!in_number) {
           initNumber();
@@ -98,14 +125,17 @@ void numberStep()
     return;
   }
  
-  // should be slowing incrementing value, not just setting here
-  value = last_read_number;
-  if (prev_read_number_ms > 0 && last_read_number > prev_read_number) {
-    // interpolate
-    value += (last_read_number - prev_read_number) * (millis() - last_read_number_ms) / (last_read_number_ms - prev_read_number_ms);
+  // interpolate
+  long diff = rate * (millis() - last_step_ms) / 1000;
+  if (diff > 0) {
+    value += diff;
+    //Serial.println("diff put us to");
+    //Serial.println(value);
+    last_step_ms = millis();
   }
+
   long ten = 1;
-  for(int i=0; i<8; i++)
+  for (int i=0; i<8; i++)
   {
       if (i != 0 && value / ten == 0) {
         lc.setChar(0, i, ' ', false);
@@ -115,7 +145,6 @@ void numberStep()
         ten *= 10;
       }
   }
-  value++;
 }
 
 int sequence[][2] = {
