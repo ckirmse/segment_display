@@ -77,6 +77,7 @@ void readSerial()
         }
         if (last_read_number < value * 9 / 10) {
           value = last_read_number;
+          last_step_ms = millis();
           Serial.println("setting value due to inaccuracy");
           Serial.println(value);
         }
