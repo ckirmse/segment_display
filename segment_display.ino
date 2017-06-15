@@ -64,9 +64,18 @@ void readSerial()
           last_step_ms = millis();
         }
         if (last_read_number > 0 && prev_read_number > 0) {
-          long instantaneous_rate = 1000 * (last_read_number - prev_read_number) / (last_read_number_ms - prev_read_number_ms);
+          long instantaneous_rate;
+          if (last_read_number > value) {
+            instantaneous_rate = 1000 * (last_read_number - value) / (last_read_number_ms - prev_read_number_ms);
+            Serial.println("instantaneous rate vs value");
+            Serial.println(instantaneous_rate);
+          } else {
+            instantaneous_rate = 1000 * (last_read_number - prev_read_number) / (last_read_number_ms - prev_read_number_ms);
+            Serial.println("instantaneous rate vs prev");
+            Serial.println(instantaneous_rate);
+          }
           // weighted average to change speeds slowly
-          rate = (3*rate + instantaneous_rate / 4);
+          rate = (3*rate + instantaneous_rate) / 4;
         }
         if (last_read_number < value) {
           Serial.println("lowering rate");
@@ -77,7 +86,8 @@ void readSerial()
         }
         if (last_read_number < value * 9 / 10) {
           value = last_read_number;
-          last_step_ms = millis();
+          prev_read_number = last_read_number;
+          rate = 0;
           Serial.println("setting value due to inaccuracy");
           Serial.println(value);
         }
